@@ -1,6 +1,7 @@
 const RequestPipelineContext = require('testcafe-hammerhead/lib/request-pipeline/context');
 const StrShuffler = require('./StrShuffler');
 const getSessionId = require('./getSessionId');
+const urlUtils = require('testcafe-hammerhead/lib/utils/url');
 
 const replaceUrl = (url, replacer) => {
     //        regex:              https://google.com/    sessionid/   url
@@ -12,6 +13,7 @@ const replaceUrl = (url, replacer) => {
 // unshuffle incoming url //
 const BUILTIN_HEADERS = require('testcafe-hammerhead/lib/request-pipeline/builtin-header-names');
 const _dispatch = RequestPipelineContext.prototype.dispatch;
+const hammerheadParseProxyUrl = urlUtils.parseProxyUrl;
 RequestPipelineContext.prototype.dispatch = function (openSessions) {
     let sessionId = getSessionId(this.req.url);
     let session = sessionId && openSessions.get(sessionId);
@@ -22,6 +24,12 @@ RequestPipelineContext.prototype.dispatch = function (openSessions) {
     if (session && session.shuffleDict) {
         const shuffler = new StrShuffler(session.shuffleDict);
         this.req.url = replaceUrl(this.req.url, (url) => shuffler.unshuffle(url));
+
+        urlUtils.parseProxyUrl = function (proxyUrl) {
+                let newproxyUrl = replaceUrl(proxyUrl, (url) => shuffler.unshuffle(url));
+                return hammerheadParseProxyUrl(newproxyUrl);
+        }
+
         if (getSessionId(this.req.headers[BUILTIN_HEADERS.referer]) === sessionId) {
             this.req.headers[BUILTIN_HEADERS.referer] = replaceUrl(this.req.headers[BUILTIN_HEADERS.referer], (url) =>
                 shuffler.unshuffle(url)
@@ -74,3 +82,4 @@ DomProcessor.prototype._processUrlAttrs = function _processUrlAttrs(el, urlRepla
         throw e;
     }
 };
+
